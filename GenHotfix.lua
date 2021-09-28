@@ -1,3 +1,48 @@
+---
+--- Created by Administrator.
+--- DateTime: 2017/12/14 11:06
+---
+
+local print = print
+local tconcat = table.concat
+local tinsert = table.insert
+local type = type
+local pairs = pairs
+local tostring = tostring
+local next = next
+
+local function pr (t, name, indent)
+    local tableList = {}
+    local function table_r (t, name, indent, full)
+        local id = not full and name or type(name)~="number" and tostring(name) or '['..name..']'
+        local tag = indent .. id .. ' = '
+        local out = {}  -- result
+        if type(t) == "table" then
+            if tableList[t] ~= nil then
+                tinsert(out, tag .. '{} -- ' .. tableList[t] .. ' (self reference)')
+            else
+                tableList[t]= full and (full .. '.' .. id) or id
+                if next(t) then -- Table not empty
+                    tinsert(out, tag .. '{')
+                    for key,value in pairs(t) do
+                        tinsert(out,table_r(value,key,indent .. '|  ',tableList[t]))
+                    end
+                    tinsert(out,indent .. '}')
+                else tinsert(out,tag .. '{}') end
+            end
+        else
+            local val = type(t)~="number" and type(t)~="boolean" and '"'..tostring(t)..'"' or tostring(t)
+            tinsert(out, tag .. val)
+        end
+        return tconcat(out, '\n')
+    end
+    return table_r(t,name or 'Value',indent or '')
+end
+local function print_r (t, name)
+    fprint(pr(t,name))
+end
+
+---@param handler CS.FairyEditor.PublishHandler
 local function genCode(handler)
     local settings = handler.project:GetSettings("Publish").codeGeneration
     local codePkgName = handler:ToFilename(handler.pkg.name); --convert chinese to pinyin, remove special chars etc.
@@ -9,7 +54,36 @@ local function genCode(handler)
     handler:SetupCodeFolder(exportCodePath, "cs") --check if target folder exists, and delete old files
 
     local getMemberByName = settings.getMemberByName
-
+    
+    ---默认是不能生成跨包的组件类型，这里查找component的正确类型保存到字典，供生成代码字段时检测
+    local _typeDict = {}
+    for i = 0, handler.pkg.items.Count - 1 do
+        ---@type CS.FairyEditor.FPackageItem
+        local _item = handler.pkg.items[i]
+        if string.find(_item.file, "xml") then
+            local _itemXml = CS.FairyEditor.XMLExtension.Load(_item.file)
+            if _itemXml then
+                local displayList = _itemXml:GetNode("displayList")
+                if displayList then
+                    _typeDict[_item.name] = _typeDict[_item.name] or {}
+                    ---@type CS.FairyGUI.Utils.XML
+                    local _elem = displayList:Elements():Filter("component")
+                    for j = 0, _elem.Count - 1  do
+                        ---@type CS.FairyGUI.Utils.XML
+                        local comp = _elem.rawList[j]
+                        local compNameKey = comp:GetAttribute("name")
+                        local compType = comp:GetAttribute("fileName")
+                        if compNameKey then
+                            _typeDict[_item.name][compNameKey] = string.sub(compType, 1, string.len(compType) - 4)
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    --print_r(_typeDict)
+    
     local classCnt = classes.Count
     local writer = CodeWriter.new()
     for i=0,classCnt-1 do
@@ -47,7 +121,9 @@ local function genCode(handler)
         local memberCnt = members.Count
         for j=0,memberCnt-1 do
             local memberInfo = members[j]
-            writer:writeln('public %s %s;', memberInfo.type, memberInfo.varName)
+            _typeDict[classInfo.className] = _typeDict[classInfo.className] or {}
+            local type = _typeDict[classInfo.className][memberInfo.varName] or memberInfo.type
+            writer:writeln('public %s %s;', type, memberInfo.varName)
         end
         writer:writeln('public const string URL = "ui://%s%s";', handler.pkg.id, classInfo.resId)
         writer:writeln()
@@ -127,39 +203,28 @@ local function genCode(handler)
         var com = go.asCom;
             
         if(com != null)
-        {	
-            ]],classInfo.superClassName)
+        {]],classInfo.superClassName)
 
         for j=0,memberCnt-1 do
             local memberInfo = members[j]
-            local typeName = memberInfo.type
+            
+            _typeDict[classInfo.className] = _typeDict[classInfo.className] or {}
+            local typeName = _typeDict[classInfo.className][memberInfo.varName] or memberInfo.type
+            
+            local isCustomComponent = _typeDict[classInfo.className][memberInfo.varName] ~= nil
+    
             if memberInfo.group==0 then
                 if getMemberByName then
-                    -- 判断是不是我们自定义类型
-                    local isCustomComponent = false
-                    for i = 0, classCnt - 1 do
-                        if typeName == classes[i].className then
-                            isCustomComponent = true
-                            break
-                        end
-                    end
                     if isCustomComponent then
-                        writer:writeln('\t\t%s = %s.Create(domain, com.GetChild("%s"));', memberInfo.varName, memberInfo.type, memberInfo.name)
+                        writer:writeln('\t\t%s = %s.Create(domain, com.GetChild("%s"));', memberInfo.varName, typeName, memberInfo.name)
                     else
-                        writer:writeln('\t\t%s = (%s)com.GetChild("%s");', memberInfo.varName, memberInfo.type, memberInfo.name)
+                        writer:writeln('\t\t%s = (%s)com.GetChild("%s");', memberInfo.varName, typeName, memberInfo.name)
                     end
                 else
-                    local isCustomComponent = false
-                    for i = 0, classCnt - 1 do
-                        if typeName == classes[i].className then
-                            isCustomComponent = true
-                            break
-                        end
-                    end
                     if isCustomComponent then
-                        writer:writeln('\t\t%s = %s.Create(domain, com.GetChildAt(%s));', memberInfo.varName, memberInfo.type, memberInfo.index)
+                        writer:writeln('\t\t%s = %s.Create(domain, com.GetChildAt(%s));', memberInfo.varName, typeName, memberInfo.index)
                     else
-                        writer:writeln('\t\t%s = (%s)com.GetChildAt(%s);', memberInfo.varName, memberInfo.type, memberInfo.index)
+                        writer:writeln('\t\t%s = (%s)com.GetChildAt(%s);', memberInfo.varName, typeName, memberInfo.index)
                     end
                 end
             elseif memberInfo.group==1 then
