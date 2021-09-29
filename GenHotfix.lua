@@ -193,7 +193,7 @@ local function genCode(handler)
         
         if (string.IsNullOrWhiteSpace(Name))
         {
-            Name = Id.ToString();
+            Name = UIResName;
         }
         
         self = (%s)go;
