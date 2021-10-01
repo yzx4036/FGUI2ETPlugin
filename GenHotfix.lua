@@ -44,6 +44,7 @@ end
 
 ---@param handler CS.FairyEditor.PublishHandler
 local function genCode(handler)
+    ---@type CS.FairyEditor.GlobalPublishSettings.CodeGenerationConfig
     local settings = handler.project:GetSettings("Publish").codeGeneration
     local codePkgName = handler:ToFilename(handler.pkg.name); --convert chinese to pinyin, remove special chars etc.
     local exportCodePath = handler.exportCodePath..'/'..codePkgName
@@ -52,8 +53,10 @@ local function genCode(handler)
     --CollectClasses(stripeMemeber, stripeClass, fguiNamespace)
     local classes = handler:CollectClasses(settings.ignoreNoname, settings.ignoreNoname, nil)
     handler:SetupCodeFolder(exportCodePath, "cs") --check if target folder exists, and delete old files
-
+    
+    local classNamePrefix = settings.classNamePrefix
     local getMemberByName = settings.getMemberByName
+    local hasClassNamePrefix = classNamePrefix and string.len(classNamePrefix) > 0
     
     ---默认是不能生成跨包的组件类型，这里查找component的正确类型保存到字典，供生成代码字段时检测
     local _typeDict = {}
@@ -65,7 +68,11 @@ local function genCode(handler)
             if _itemXml then
                 local displayList = _itemXml:GetNode("displayList")
                 if displayList then
-                    _typeDict[_item.name] = _typeDict[_item.name] or {}
+                    local _itemName = _item.name
+                    if hasClassNamePrefix then
+                        _itemName = classNamePrefix.._item.name --这里拼接一下全局设置里面类名前缀
+                    end
+                    _typeDict[_itemName] = _typeDict[_itemName] or {}
                     ---@type CS.FairyGUI.Utils.XML
                     local _elem = displayList:Elements():Filter("component")
                     for j = 0, _elem.Count - 1  do
@@ -74,7 +81,11 @@ local function genCode(handler)
                         local compNameKey = comp:GetAttribute("name")
                         local compType = comp:GetAttribute("fileName")
                         if compNameKey then
-                            _typeDict[_item.name][compNameKey] = string.sub(compType, 1, string.len(compType) - 4)
+                            compType = string.sub(compType, 1, string.len(compType) - 4)
+                            if hasClassNamePrefix then
+                                compType = classNamePrefix..compType --这里拼接一下全局设置里面类名前缀
+                            end
+                            _typeDict[_itemName][compNameKey] = compType
                         end
                     end
                 end
@@ -204,7 +215,7 @@ local function genCode(handler)
             
         if(com != null)
         {]],classInfo.superClassName)
-
+        
         for j=0,memberCnt-1 do
             local memberInfo = members[j]
             
