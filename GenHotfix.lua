@@ -215,13 +215,18 @@ local function genCode(handler)
             
         if(com != null)
         {]],classInfo.superClassName)
-        
+    
+        --print_r(_typeDict)
+    
+    
         for j=0,memberCnt-1 do
             local memberInfo = members[j]
             
             _typeDict[classInfo.className] = _typeDict[classInfo.className] or {}
             local typeName = _typeDict[classInfo.className][memberInfo.varName] or memberInfo.type
             
+            --fprint("className:"..classInfo.className.." varName:"..memberInfo.varName)
+    
             local isCustomComponent = _typeDict[classInfo.className][memberInfo.varName] ~= nil
     
             if memberInfo.group==0 then
