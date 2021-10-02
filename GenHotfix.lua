@@ -126,7 +126,7 @@ local function genCode(handler)
 		if classInfo.res.exported
 				and classInfo.res.type == "component"
 				and classInfo.res.favorite then
-			writer:writeln("[FUI]")
+			writer:writeln(string.format("[FUI(typeof(%s), UIPackageName, UIResName)]", classInfo.className))
 		end
 		
 		writer:writeln([[public sealed class %s : FUI
