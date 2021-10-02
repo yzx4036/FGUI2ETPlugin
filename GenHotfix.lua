@@ -101,6 +101,7 @@ local function genCode(handler)
 	local classCnt = classes.Count
 	local writer = CodeWriter.new()
 	for i = 0, classCnt - 1 do
+		---@type CS.FairyEditor.PublishHandler.ClassInfo
 		local classInfo = classes[i]
 		local members = classInfo.members
 		writer:reset()
@@ -120,6 +121,13 @@ local function genCode(handler)
         }
     }
         ]], classInfo.className, classInfo.className, classInfo.className)
+		
+		--如果是收藏的组件，生成[FUI]属性
+		if classInfo.res.exported
+				and classInfo.res.type == "component"
+				and classInfo.res.favorite then
+			writer:writeln("[FUI]")
+		end
 		
 		writer:writeln([[public sealed class %s : FUI
     {	
@@ -337,16 +345,9 @@ local function genCode(handler)
 	
 	
 	-- 写入Fui Type
-	writer:reset()
-	writer:writeln('using System;')
-	
-	writer:writeln('namespace %s', namespaceName)
-	writer:startBlock()
-	writer:writeln('public static partial class FUIType')
-	writer:startBlock()
-	
-	-- 生成所有的
+	-- 生成所有的Type
 	local itemCount = handler.items.Count
+	local _genClassNameList = {}
 	for i = 0, itemCount - 1 do
 		---@type CS.FairyEditor.FPackageItem
 		local _item = handler.items[i]
@@ -355,14 +356,31 @@ local function genCode(handler)
 			if hasClassNamePrefix then
 				_className = classNamePrefix .. _className
 			end
+			table.insert(_genClassNameList, _className)
 			writer:writeln('public static readonly Type %s = typeof(%s);', _className, _className)
 		end
 	end
+	if #_genClassNameList > 0 then
+		writer:reset()
+		writer:writeln('using System;')
+		
+		writer:writeln('namespace %s', namespaceName)
+		writer:startBlock()
+		writer:writeln('public static partial class FUIType')
+		writer:startBlock()
+		
+		for i = 1, #_genClassNameList do
+			writer:writeln('public static readonly Type %s = typeof(%s);', _genClassNameList[i], _genClassNameList[i])
+		end
+		
+		writer:endBlock() --class
+		writer:endBlock() --namespace
+		local binderPackageName = 'FUIType' .. codePkgName
+		writer:save(exportCodePath .. '/' .. binderPackageName .. '.cs')
+	end
 	
-	writer:endBlock() --class
-	writer:endBlock() --namespace
-	local binderPackageName = 'FUIType' .. codePkgName
-	writer:save(exportCodePath .. '/' .. binderPackageName .. '.cs')
+	
+	
 
 
 end
