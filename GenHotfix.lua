@@ -150,58 +150,58 @@ local function genCode(handler)
 		writer:writeln('public const string URL = "ui://%s%s";', handler.pkg.id, classInfo.resId)
 		writer:writeln()
 		
-		writer:writeln([[private static GObject CreateGObject()
-    {
-        return UIPackage.CreateObject(UIPackageName, UIResName);
-    }
+		writer:writeln([[//private static GObject CreateGObject()
+    //{
+     //   return UIPackage.CreateObject(UIPackageName, UIResName);
+    //}
     
-    private static void CreateGObjectAsync(UIPackage.CreateObjectCallback result)
-    {
-        UIPackage.CreateObjectAsync(UIPackageName, UIResName, result);
-    }
+    //private static void CreateGObjectAsync(UIPackage.CreateObjectCallback result)
+    //{
+     //   UIPackage.CreateObjectAsync(UIPackageName, UIResName, result);
+    //}
         ]])
 		
-		writer:writeln([[public static %s CreateInstance(Entity domain)
-    {			
-        return EntityFactory.Create<%s, GObject>(domain, CreateGObject());
-    }
+		writer:writeln([[//public static %s CreateInstance(Entity domain)
+    //{			
+     //   return EntityFactory.Create<%s, GObject>(domain, CreateGObject());
+    //}
         ]], classInfo.className, classInfo.className)
 		
-		writer:writeln([[public static Task<%s> CreateInstanceAsync(Entity domain)
-    {
-        TaskCompletionSource<%s> tcs = new TaskCompletionSource<%s>();
+		writer:writeln([[//public static Task<%s> CreateInstanceAsync(Entity domain)
+    //{
+      //  TaskCompletionSource<%s> tcs = new TaskCompletionSource<%s>();
 
-        CreateGObjectAsync((go) =>
-        {
-            tcs.SetResult(EntityFactory.Create<%s, GObject>(domain, go));
-        });
+        //CreateGObjectAsync((go) =>
+        //{
+         //   tcs.SetResult(EntityFactory.Create<%s, GObject>(domain, go));
+        //});
 
-        return tcs.Task;
-    }
+        //return tcs.Task;
+    //}
         ]], classInfo.className, classInfo.className, classInfo.className, classInfo.className)
 		
-		writer:writeln([[public static %s Create(Entity domain, GObject go)
-    {
-        return EntityFactory.Create<%s, GObject>(domain, go);
-    }
+		writer:writeln([[//public static %s Create(Entity domain, GObject go)
+    //{
+      //  return EntityFactory.Create<%s, GObject>(domain, go);
+    //}
         ]], classInfo.className, classInfo.className)
 		
 		writer:writeln([[/// <summary>
     /// 通过此方法获取的FUI，在Dispose时不会释放GObject，需要自行管理（一般在配合FGUI的Pool机制时使用）。
     /// </summary>
-    public static %s GetFormPool(Entity domain, GObject go)
-    {
-        var fui = go.Get<%s>();
+    //public static %s GetFormPool(Entity domain, GObject go)
+    //{
+      //  var fui = go.Get<%s>();
 
-        if(fui == null)
-        {
-            fui = Create(domain, go);
-        }
+        //if(fui == null)
+        //{
+          //  fui = Create(domain, go);
+        //}
 
-        fui.isFromFGUIPool = true;
+        //fui.isFromFGUIPool = true;
 
-        return fui;
-    }
+        //return fui;
+    //}
         ]], classInfo.className, classInfo.className)
 		
 		writer:writeln([[public void Awake(GObject go)
@@ -243,13 +243,15 @@ local function genCode(handler)
 			if memberInfo.group == 0 then
 				if getMemberByName then
 					if isCustomComponent then
-						writer:writeln('\t\t%s = %s.Create(domain, com.GetChild("%s"));', memberInfo.varName, typeName, memberInfo.name)
+						writer:writeln('\t\t%s = AddChild<%s, GObject>(com.GetChildAt(%s));', memberInfo.varName, typeName, memberInfo.index)
+						-- writer:writeln('\t\t%s = %s.Create(domain, com.GetChild("%s"));', memberInfo.varName, typeName, memberInfo.name)
 					else
 						writer:writeln('\t\t%s = (%s)com.GetChild("%s");', memberInfo.varName, typeName, memberInfo.name)
 					end
 				else
 					if isCustomComponent then
-						writer:writeln('\t\t%s = %s.Create(domain, com.GetChildAt(%s));', memberInfo.varName, typeName, memberInfo.index)
+						writer:writeln('\t\t%s = AddChild<%s, GObject>(com.GetChildAt(%s));', memberInfo.varName, typeName, memberInfo.index)
+						-- writer:writeln('\t\t%s = %s.Create(domain, com.GetChildAt(%s));', memberInfo.varName, typeName, memberInfo.index)
 					else
 						writer:writeln('\t\t%s = (%s)com.GetChildAt(%s);', memberInfo.varName, typeName, memberInfo.index)
 					end
